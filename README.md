@@ -28,7 +28,7 @@
 
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/username/tiktok-live-roulette.git
+   git clone https://github.com/ItsYourBoyFD/TikTokLiveSpinWheel.git
    cd tiktok-live-roulette
    ```
 
