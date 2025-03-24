@@ -17,6 +17,11 @@
 - **Luxury Graphics**: Gold-themed "Winner Gets" counter and cyan countdown display for a premium feel.
 - **Manual Entry**: Allows adding names manually alongside TikTok interactions.
 
+## Preview Media
+
+![images/prev.png)](https://github.com/ItsYourBoyFD/TikTokLiveSpinWheel/blob/main/images/prev.png)
+
+
 ## Prerequisites
 
 - **Python 3.8+**: Ensure Python is installed on your system.
@@ -136,3 +141,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Does't add up multiple gifts when calculating the price
    ```
 ---
+![Schermafbeelding 2025-03-24 185139](https://github.com/user-attachments/assets/07de0140-1752-451c-a79a-22910881c663)
