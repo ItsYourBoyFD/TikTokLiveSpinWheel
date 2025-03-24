@@ -1,6 +1,6 @@
 import random
 import tkinter as tk
-from tkinter import messagebox, Canvas
+from tkinter import messagebox, Canvas, scrolledtext
 import math
 import time
 from TikTokLive import TikTokLiveClient
@@ -24,58 +24,74 @@ def start_tiktok_client():
         return
     
     play_sound(BUTTON_SOUND)
+    if client is not None:
+        disconnect_tiktok_client()  # Disconnect existing client if any
+    
     client = TikTokLiveClient(unique_id=f"@{username}")
     
     @client.on(ConnectEvent)
     async def on_connect(event: ConnectEvent):
         print(f"Connected to @{username}'s live stream!")
         status_label.config(text=f"Connected to @{username}")
+        log_event(f"Connected to @{username}")
 
     @client.on(FollowEvent)
     async def on_follow(event: FollowEvent):
         global is_spinning
-        if not is_spinning:  # Only add if not spinning
+        if not is_spinning:
             viewer_name = event.user.unique_id
             if viewer_name not in names:
                 names.append(viewer_name)
                 name_listbox.insert(tk.END, viewer_name)
                 draw_wheel()
-                print(f"Added follower: {viewer_name}")
+                log_event(f"Added follower: {viewer_name}")
 
     @client.on(LikeEvent)
     async def on_like(event: LikeEvent):
         global is_spinning
-        if not is_spinning:  # Only add if not spinning
+        if not is_spinning:
             viewer_name = event.user.unique_id
             if viewer_name not in names:
                 names.append(viewer_name)
                 name_listbox.insert(tk.END, viewer_name)
                 draw_wheel()
-                print(f"Added liker: {viewer_name}")
+                log_event(f"Added liker: {viewer_name}")
 
     @client.on(GiftEvent)
     async def on_gift(event: GiftEvent):
-        global is_spinning, winner_coins
-        if not is_spinning:  # Only update if not spinning
+        global is_spinning, total_coins
+        if not is_spinning:
             viewer_name = event.user.unique_id
             if viewer_name not in names:
                 names.append(viewer_name)
                 name_listbox.insert(tk.END, viewer_name)
                 draw_wheel()
-                print(f"Added gifter: {viewer_name}")
+                log_event(f"Added gifter: {viewer_name}")
             
             gift_coins = event.gift.diamond_count
-            winner_coins += gift_coins // 5
+            total_coins += gift_coins
             update_winner_counter()
-            print(f"Gift worth {gift_coins} coins, winner pool now at {winner_coins} coins")
+            log_event(f"Gift worth {gift_coins} coins, total now {total_coins}")
 
     client_thread = threading.Thread(target=lambda: client.run(), daemon=True)
     client_thread.start()
     connect_button.config(state="disabled")
+    disconnect_button.config(state="normal")
+
+def disconnect_tiktok_client():
+    global client
+    if client is not None:
+        client.stop()
+        client = None
+        status_label.config(text="Not Connected")
+        connect_button.config(state="normal")
+        disconnect_button.config(state="disabled")
+        log_event("Disconnected from TikTok Live")
 
 def update_winner_counter():
+    prize = total_coins // 4
     winner_canvas.delete("counter_text")
-    winner_canvas.create_text(100, 50, text=f"Winner Gets: {winner_coins} Coins", 
+    winner_canvas.create_text(100, 50, text=f"Winner Gets: {prize} Coins", 
                              font=("Arial", 16, "bold"), fill="#FFD700", 
                              tags="counter_text")
 
@@ -83,13 +99,17 @@ def play_sound(sound_file):
     try:
         winsound.PlaySound(sound_file, winsound.SND_ASYNC)
     except Exception as e:
-        print(f"Error playing sound {sound_file}: {e}")
+        log_event(f"Error playing sound {sound_file}: {e}")
+
+def log_event(message):
+    log_text.insert(tk.END, f"{time.strftime('%H:%M:%S')} - {message}\n")
+    log_text.see(tk.END)  # Auto-scroll to the latest log
 
 def add_name():
     global is_spinning
     play_sound(BUTTON_SOUND)
     if is_spinning:
-        return  # Block adding names during spin
+        return
     name = name_entry.get().strip()
     if name:
         if name not in names:
@@ -97,6 +117,7 @@ def add_name():
             name_listbox.insert(tk.END, name)
             name_entry.delete(0, tk.END)
             draw_wheel()
+            log_event(f"Manually added: {name}")
         else:
             play_sound(ERROR_SOUND)
             messagebox.showwarning("Duplicate Name", "This name is already in the list.")
@@ -111,6 +132,7 @@ def start_timer():
         timer_running = True
         start_button.config(state="disabled")
         update_countdown()
+        log_event("Timer started")
 
 def update_countdown():
     global countdown_seconds, timer_running
@@ -122,7 +144,7 @@ def update_countdown():
         countdown_canvas.create_text(75, 50, text=f"Time Left: {mins:02d}:{secs:02d}", 
                                     font=("Arial", 16, "bold"), fill="#00FFFF", 
                                     tags="timer_text")
-        root.after(1000, update_countdown)  # Update every second
+        root.after(1000, update_countdown)
     elif countdown_seconds <= 0:
         timer_running = False
         start_button.config(state="normal")
@@ -130,6 +152,7 @@ def update_countdown():
         countdown_canvas.create_text(75, 50, text="Time Left: 00:00", 
                                     font=("Arial", 16, "bold"), fill="#FF2D55", 
                                     tags="timer_text")
+        log_event("Timer ended")
 
 def add_one_minute():
     global countdown_seconds, timer_running
@@ -142,15 +165,17 @@ def add_one_minute():
         countdown_canvas.create_text(75, 50, text=f"Time Left: {mins:02d}:{secs:02d}", 
                                     font=("Arial", 16, "bold"), fill="#00FFFF", 
                                     tags="timer_text")
+        log_event("Added 1 minute to timer")
 
 def start_spin(event):
     global spin_strength, increasing, is_spinning
     play_sound(BUTTON_SOUND)
     spin_strength = 0
     increasing = True
-    is_spinning = True  # Set spinning flag
+    is_spinning = True
     increase_strength()
     play_sound(SPIN_SOUND)
+    log_event("Spin started")
 
 def increase_strength():
     global spin_strength, increasing
@@ -166,54 +191,53 @@ def stop_spin(event):
     spin_wheel(spin_strength)
 
 def spin_wheel(strength):
-    global is_spinning, winner_coins, countdown_seconds, timer_running
+    global is_spinning, total_coins, countdown_seconds, timer_running
     if not names:
         play_sound(ERROR_SOUND)
         messagebox.showwarning("No Names", "No names in the list. Add names first!")
-        is_spinning = False  # Reset flag if no spin occurs
+        is_spinning = False
         return
     
     final_angle = animate_spin(strength)
     segment_angle = 360 / len(names)
-    print(f"Final angle after spin: {final_angle:.2f}°")
+    prize = total_coins // 4
     
     arrow_angle = 90
     original_angle = (arrow_angle - final_angle) % 360
     winner_index = int(original_angle / segment_angle) % len(names)
     winner = names[winner_index]
     
-    print(f"Number of names: {len(names)}")
-    print(f"Segment angle: {segment_angle:.2f}°")
-    print(f"Original angle under arrow: {original_angle:.2f}°")
-    print(f"Winner index: {winner_index}")
-    print(f"Selected winner: {winner}")
-    
     winners.append(winner)
     winners_listbox.insert(tk.END, winner)
     play_sound(WINNER_SOUND)
-    messagebox.showinfo("Winner!", f"The winner is: {winner} and gets {winner_coins} coins!")
+    messagebox.showinfo("Winner!", f"The winner is: {winner} and gets {prize} coins!")
+    log_event(f"Winner: {winner} gets {prize} coins (Total coins: {total_coins})")
     
     # Reset after spin
-    winner_coins = 0
+    total_coins = 0
     update_winner_counter()
-    countdown_seconds = 300  # Reset to 5 minutes
+    countdown_seconds = 300
     timer_running = False
     start_button.config(state="normal")
     countdown_canvas.delete("timer_text")
     countdown_canvas.create_text(75, 50, text="Time Left: 05:00", 
                                 font=("Arial", 16, "bold"), fill="#00FFFF", 
                                 tags="timer_text")
-    is_spinning = False  # Reset spinning flag
+    is_spinning = False
+    log_event("Spin ended, reset prize and timer")
 
 def clear_names():
     play_sound(BUTTON_SOUND)
     names.clear()
     name_listbox.delete(0, tk.END)
     draw_wheel()
+    log_event("Names cleared")
 
 def exit_app():
     play_sound(BUTTON_SOUND)
+    disconnect_tiktok_client()
     root.destroy()
+    log_event("Application exited")
 
 def draw_wheel():
     canvas.delete("all")
@@ -332,33 +356,30 @@ def add_winner_marker(final_angle):
     
     canvas.create_oval(marker_x-5, marker_y-5, marker_x+5, marker_y+5, fill="#00FF00", 
                       outline="#FFFFFF", width=2)
-    print(f"Debug marker placed at angle: {winner_start_angle:.2f}°, x: {marker_x:.2f}, y: {marker_y:.2f}")
-
-def on_resize(event):
-    draw_wheel()
 
 # GUI Setup
 root = tk.Tk()
 root.title("TikTok Live Roulette")
 root.configure(bg="#1A1A1A")
-root.geometry("800x600")
+root.geometry("800x700")  # Increased height for log window
 
 names = []
 winners = []
 spin_strength = 0
 increasing = False
 client = None
-winner_coins = 0
-is_spinning = False  # Flag to track spinning state
-countdown_seconds = 300  # 5 minutes default
+total_coins = 0  # Track all coins given
+is_spinning = False
+countdown_seconds = 300
 timer_running = False
 
-root.bind("<Configure>", on_resize)
+root.bind("<Configure>", lambda e: draw_wheel())
 
 # Main Frame
 main_frame = tk.Frame(root, bg="#1A1A1A")
 main_frame.pack(expand=True, fill="both")
 main_frame.grid_rowconfigure(0, weight=1)
+main_frame.grid_rowconfigure(1, weight=0)  # Log row
 main_frame.grid_columnconfigure(0, weight=1)
 main_frame.grid_columnconfigure(1, weight=3)
 main_frame.grid_columnconfigure(2, weight=1)
@@ -390,6 +411,10 @@ connect_button = tk.Button(tiktok_frame, text="Connect", command=start_tiktok_cl
                            font=("Arial", 10, "bold"), bg="#FF2D55", fg="#FFFFFF", 
                            activebackground="#00FFFF", relief="flat")
 connect_button.pack(side=tk.LEFT, padx=5)
+disconnect_button = tk.Button(tiktok_frame, text="Disconnect", command=disconnect_tiktok_client, 
+                              font=("Arial", 10, "bold"), bg="#FF5555", fg="#FFFFFF", 
+                              activebackground="#FF2D55", relief="flat", state="disabled")
+disconnect_button.pack(side=tk.LEFT, padx=5)
 
 # Status Label
 status_label = tk.Label(center_frame, text="Not Connected", font=("Arial", 10), fg="#FFFFFF", 
@@ -466,7 +491,7 @@ winner_frame.pack(pady=(0, 10))
 winner_canvas = Canvas(winner_frame, width=200, height=100, bg="#1A1A1A", highlightthickness=0)
 winner_canvas.pack()
 winner_canvas.create_rectangle(10, 10, 190, 90, fill="#2F2F2F", outline="#FFD700", width=3)
-winner_canvas.create_text(100, 50, text=f"Winner Gets: {winner_coins} Coins", 
+winner_canvas.create_text(100, 50, text=f"Winner Gets: {total_coins // 4} Coins", 
                          font=("Arial", 16, "bold"), fill="#FFD700", tags="counter_text")
 
 # Previous Winners
@@ -475,5 +500,14 @@ tk.Label(right_frame, text="Previous Winners:", font=("Arial", 12, "bold"), fg="
 winners_listbox = tk.Listbox(right_frame, height=10, width=15, font=("Arial", 10), 
                             bg="#333333", fg="#FFFFFF", selectbackground="#00FFFF", relief="flat")
 winners_listbox.pack(fill="y", expand=True)
+
+# Log Window
+log_frame = tk.Frame(main_frame, bg="#1A1A1A")
+log_frame.grid(row=1, column=0, columnspan=3, sticky="ew", padx=10, pady=10)
+tk.Label(log_frame, text="Event Log:", font=("Arial", 12, "bold"), fg="#FFFFFF", 
+         bg="#1A1A1A").pack()
+log_text = scrolledtext.ScrolledText(log_frame, height=5, width=80, font=("Arial", 10), 
+                                    bg="#333333", fg="#FFFFFF", relief="flat")
+log_text.pack(fill="x", expand=True)
 
 root.mainloop()
