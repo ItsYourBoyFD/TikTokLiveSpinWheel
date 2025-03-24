@@ -129,4 +129,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Tkinter**: For the GUI framework.
 - **Community**: Thanks to all testers and contributors!
 
+## Known Bugs
+
+   ```
+- Doesn't reset timer after a spin.
+- Does't add up multiple gifts when calculating the price
+   ```
 ---
