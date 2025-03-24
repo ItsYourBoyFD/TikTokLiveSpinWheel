@@ -20,8 +20,7 @@
 ## Preview Media
 
 ![images/prev.png)](https://github.com/ItsYourBoyFD/TikTokLiveSpinWheel/blob/main/images/prev.png)
-
-
+![images/video zonder titel.gif](https://github.com/ItsYourBoyFD/TikTokLiveSpinWheel/blob/main/images/Video%20zonder%20titel.gif)
 ## Prerequisites
 
 - **Python 3.8+**: Ensure Python is installed on your system.
